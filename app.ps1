@@ -78,9 +78,6 @@ do
         '2' {
             Option2
         }
-        '3' {
-            Option3
-        }
         'Q' {
             break
         }
