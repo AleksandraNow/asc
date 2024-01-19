@@ -1,1 +1,8 @@
-Projekt;VMname;VMsizeKopernik;k-db1;Kopernik;k-app1;Apollo;a-dp1;Apollo;a-app1;Sojuz;sojuz-db1;Sojuz;sojuz-app1;
+Projekt;VMname;VMsize
+Kopernik;k-db1;Standard_B1s
+Kopernik;k-app1;Standard_B1ms
+Apollo;a-dp1;Standard_B2s
+Apollo;a-app1;Standard_B2ms
+Sojuz;sojuz-db1;Standard_B4ms
+Sojuz;sojuz-app1;Standard_B8ms
+Sojuz2;sojuz-app1;Standard_B8ms

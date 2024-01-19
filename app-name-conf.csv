@@ -1,1 +1,5 @@
-Projekt;tag-name;tag-valKopernik;costcenter;ksiegowoscApollo;costcenter;marketingSojuz;costcenter;administracja
+Projekt;tag-name;tag-val
+Kopernik;costcenter;ksiegowosc
+Apollo;costcenter;marketing
+Sojuz;costcenter;administracja
+Sojuz2;costcenter;administracja
