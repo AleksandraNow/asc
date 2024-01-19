@@ -61,20 +61,18 @@ function Option1
             # Create a network interface without a public IP address
             $networkInterface = New-AzNetworkInterface -Name "$vmName-NIC" -ResourceGroupName $resourceGroupName -Location $location -SubnetId $subnetId
 
-            # Define VM Configuration
-            $vmConfig = @{
-                ResourceGroupName = $resourceGroupName
-                Name = $vmName
-                Location = $location
-                VMSize = $vmSize
-                Credential = $vmCredential
-                Tag = $projectTag
-                NetworkInterfaceId = $networkInterface.Id
-            }
+            # Create a VM configuration object
+            $vmConfig = New-AzVMConfig -VMName $vmName -VMSize $vmSize
 
-            # Create the VM
-            New-AzVM @vmConfig
-            Write-Host "Creating VM: $vmName with size $vmSize for project $($row.Projekt)"
+            # Set the VM credential
+            Set-AzVMOperatingSystem -VM $vmConfig -Windows -Credential $vmCredential -ComputerName $vmName
+
+            # Add the network interface to the VM configuration
+            Add-AzVMNetworkInterface -VM $vmConfig -Id $networkInterface.Id
+
+            # Create the VM using the configuration object
+            New-AzVM -ResourceGroupName $resourceGroupName -Location $location -VM $vmConfig -Tag $projectTag
+            Write-Host "Successfully created VM: $vmName"
         }
         catch {
             Write-Host "Failed to create VM: $vmName. Error: $_"
