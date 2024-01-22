@@ -11,7 +11,7 @@ function Option1
     $vmData = Import-Csv -Path $csvFilePath -Delimiter ';'
 
     # Connect to your Azure account
-    #    Connect-AzAccount
+    Connect-AzAccount
 
     # Set variables for Resource Group and location
     $resourceGroupName = "tomasiea-test"
@@ -49,7 +49,8 @@ function Option1
 
         # Create a new VM using the basic configuration
         # Adjust this part based on your network and VM requirements
-        try {
+        try
+        {
             # Create a virtual network with a subnet configuration
             $virtualNetwork = New-AzVirtualNetwork -ResourceGroupName $resourceGroupName -Location $location -Name "$vmName-VNet" -AddressPrefix "10.0.0.0/16"
             $virtualNetwork | Add-AzVirtualNetworkSubnetConfig -Name "$vmName-Subnet" -AddressPrefix "10.0.0.0/24" | Set-AzVirtualNetwork
@@ -58,8 +59,11 @@ function Option1
             $updatedVirtualNetwork = Get-AzVirtualNetwork -ResourceGroupName $resourceGroupName -Name "$vmName-VNet"
             $subnetId = $updatedVirtualNetwork.Subnets[0].Id
 
-            # Create a network interface without a public IP address
-            $networkInterface = New-AzNetworkInterface -Name "$vmName-NIC" -ResourceGroupName $resourceGroupName -Location $location -SubnetId $subnetId
+            # Create a public IP address
+            $publicIp = New-AzPublicIpAddress -Name "$vmName-PublicIp" -ResourceGroupName $resourceGroupName -Location $location -AllocationMethod Dynamic -DomainNameLabel $vmName.ToLower()
+
+            # Create a network interface with the public IP address
+            $networkInterface = New-AzNetworkInterface -Name "$vmName-NIC" -ResourceGroupName $resourceGroupName -Location $location -SubnetId $subnetId -PublicIpAddressId $publicIp.Id
 
             # Create a VM configuration object
             $vmConfig = New-AzVMConfig -VMName $vmName -VMSize $vmSize
@@ -72,9 +76,24 @@ function Option1
 
             # Create the VM using the configuration object
             New-AzVM -ResourceGroupName $resourceGroupName -Location $location -VM $vmConfig -Tag $projectTag
+
+            # Custom Script to run on the VM
+            $customScript = @"
+Install-WindowsFeature -name Web-Server -IncludeManagementTools
+Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value 'Imię, Nazwisko – numer indexu – praca zaliczeniowa z ASC – data'
+"@
+
+            # Apply the Custom Script Extension
+            Set-AzVMCustomScriptExtension -ResourceGroupName $resourceGroupName -VMName $vmName -Name "InitializeWebServer" -ScriptText $customScript -Location $location
+
             Write-Host "Successfully created VM: $vmName"
+
+            $publicIpAddress = (Get-AzPublicIpAddress -ResourceGroupName $resourceGroupName -Name "$vmName-PublicIp").IpAddress
+            Write-Host "Access the web page hosted on VM at: http://$publicIpAddress"
+
         }
-        catch {
+        catch
+        {
             Write-Host "Failed to create VM: $vmName. Error: $_"
         }
     }
@@ -112,6 +131,9 @@ function Option1
 
 function Option2
 {
+    # Connect to your Azure account
+    Connect-AzAccount
+
     Write-Host "Infrastructure deprovisioning"
     $resourceGroupName = "tomasiea-test"
     # Remove the resource group as a background job
