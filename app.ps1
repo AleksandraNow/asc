@@ -1,24 +1,58 @@
+function WriteLog($action, $errorLog = $null) {
+    $date = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $username = $env:USERNAME
+    $logInfo = "$date; $username; $action"
+
+    if ($error) {
+        $logInfo += "; Error: $error"
+    }
+
+    # $logPath = "/Users/aleksandra/wit/asc/asc"
+    $logPath = "C:\ASC\LOG"
+
+    $logFile = "task2.log"
+    $fullPath = Join-Path -Path $logPath -ChildPath $logFile
+
+    try {
+        if (-not (Test-Path -Path $logPath)) {
+            New-Item -ItemType Directory -Path $logPath | Out-Null
+        }
+
+        $logInfo | Out-File -Append -FilePath $fullPath
+    }
+    catch {
+        Write-Host "Failed to write to log file: $_"
+    }
+}
+
+
+
 # Function for each menu option
 function Option1
 {
-    Write-Host "Infrastructure provisioning"
+    # Write-Host "Infrastructure provisioning"
+    WriteLog "Started infrastructure provisioning"
 
     # Path to the CSV file in the same directory as the script
     $csvFilePath = Join-Path -Path $PSScriptRoot -ChildPath "dev-app-srv.csv"
-    Write-Host "Data loadded from: $csvFilePath"
+    # Write-Host "Data loadded from: $csvFilePath"
+    WriteLog "Data loaded from $csvFilePath"
+
 
     # Read the CSV file
     $vmData = Import-Csv -Path $csvFilePath -Delimiter ';'
 
     # Connect to your Azure account
-    Connect-AzAccount
+    # Connect-AzAccount
 
     # Set variables for Resource Group and location
     $resourceGroupName = "tomasiea-test"
     $location = "North Europe"
 
     # Create a new resource group
-    Write-Host "Creating resource group"
+    # Write-Host "Creating resource group"
+    WriteLog "Creating resource group"
+
     $resourceGroupExists = Get-AzResourceGroup -Name $resourceGroupName -ErrorAction SilentlyContinue
     if (-not$resourceGroupExists)
     {
@@ -28,19 +62,24 @@ function Option1
     # Iterate over each row in the CSV
     foreach ($row in $vmData)
     {
-        Write-Host "row: $row"
+        # Write-Host "row: $row"
+        WriteLog "Processing row: $row"
+
         # Extract VM details from CSV
         $vmName = $row.VMname
         $vmSize = $row.VMsize
         $projectTag = @{ "Projekt" = $row.Projekt }
 
         # Debugging line to print VM details
-        Write-Host "Read from CSV: VM Name - $vmName, VM Size - $vmSize, Project - $( $row.Projekt )"
+        # Write-Host "Read from CSV: VM Name - $vmName, VM Size - $vmSize, Project - $( $row.Projekt )"
+        WriteLog "Read from CSV: VM Name - $vmName, VM Size - $vmSize, Project - $( $row.Projekt )"
 
         # Check if VM name is not null or empty
         if ( [string]::IsNullOrWhiteSpace($vmName))
         {
-            Write-Host "VM name is null or empty. Skipping this entry."
+            # Write-Host "VM name is null or empty. Skipping this entry."
+            WriteLog "VM name is null or empty. Skipping this entry."
+
         }
 
         $vmUsername = "tomasiea"
@@ -60,7 +99,9 @@ function Option1
             $subnetId = $updatedVirtualNetwork.Subnets[0].Id
 
             # Create a public IP address
-            $publicIp = New-AzPublicIpAddress -Name "$vmName-PublicIp" -ResourceGroupName $resourceGroupName -Location $location -AllocationMethod Dynamic -DomainNameLabel $vmName.ToLower()
+            # $publicIp = New-AzPublicIpAddress -Name "$vmName-PublicIp" -ResourceGroupName $resourceGroupName -Location $location -AllocationMethod Dynamic -DomainNameLabel $vmName.ToLower()
+            $publicIp = New-AzPublicIpAddress -Name "$vmName-PublicIp" -ResourceGroupName $resourceGroupName -Location $location -AllocationMethod Static -DomainNameLabel $vmName.ToLower()
+
 
             # Create a network interface with the public IP address
             $networkInterface = New-AzNetworkInterface -Name "$vmName-NIC" -ResourceGroupName $resourceGroupName -Location $location -SubnetId $subnetId -PublicIpAddressId $publicIp.Id
@@ -78,30 +119,52 @@ function Option1
             New-AzVM -ResourceGroupName $resourceGroupName -Location $location -VM $vmConfig -Tag $projectTag
 
             # Custom Script to run on the VM
-            $customScript = @"
-Install-WindowsFeature -name Web-Server -IncludeManagementTools
-Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value 'Imię, Nazwisko – numer indexu – praca zaliczeniowa z ASC – data'
-"@
+#             $customScript = @"
+# Install-WindowsFeature -name Web-Server -IncludeManagementTools
+# Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value 'Imię, Nazwisko – numer indexu – praca zaliczeniowa z ASC – data'
+# "@
 
+            # Check if the VM is created successfully
+            # if ($vm)
+            # {
+            #     # Add a delay to ensure the previous operation has completed
+            #     Start-Sleep -Seconds 10
+
+            #     # Run the commands on the VM
+            #     Invoke-AzVMRunCommand -ResourceGroupName $resourceGroupName -VMName $vmName -CommandId 'RunPowerShellScript' -ScriptString 'Install-WindowsFeature -Name Web-Server -IncludeManagementTools'
+            #     Invoke-AzVMRunCommand -ResourceGroupName $resourceGroupName -VMName $vmName -CommandId 'RunPowerShellScript' -ScriptString 'New-Item -ItemType file -Name index.html -Path C:\inetpub\wwwroot -Value "Aleksandra Tomasiewicz - 22202 - praca zaliczeniowa z ASC - 24.01.2024"'
+            # }
+            # else
+            # {
+            #     Write-Host "VM creation failed. Skipping command execution."
+            # }
+   
             # Apply the Custom Script Extension
             Set-AzVMCustomScriptExtension -ResourceGroupName $resourceGroupName -VMName $vmName -Name "InitializeWebServer" -ScriptText $customScript -Location $location
 
-            Write-Host "Successfully created VM: $vmName"
+            # Write-Host "Successfully created VM: $vmName"
+            WriteLog "VM $vmName created successfully"
+
 
             $publicIpAddress = (Get-AzPublicIpAddress -ResourceGroupName $resourceGroupName -Name "$vmName-PublicIp").IpAddress
-            Write-Host "Access the web page hosted on VM at: http://$publicIpAddress"
+            # Write-Host "Access the web page hosted on VM at: http://$publicIpAddress"
+            WriteLog "Access the web page hosted on VM at: http://$publicIpAddress"
 
         }
         catch
         {
             Write-Host "Failed to create VM: $vmName. Error: $_"
+            WriteLog "Failed to create VM: $_"
+
         }
     }
 
     # Wait for all jobs to complete
     Get-Job | Wait-Job
 
-    Write-Host "All VMs created."
+    # Write-Host "All VMs created."
+    WriteLog "All VMs created."
+
 
     break
 
@@ -112,7 +175,10 @@ Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value 'Imię, Nazwisko – nu
     $sqlCredential = New-Object System.Management.Automation.PSCredential ($sqlAdminUsername, $sqlAdminPassword)
 
     # Create a new SQL Server
-    Write-Host "Creating AzSqlServer"
+    # Write-Host "Creating AzSqlServer"
+    WriteLog "Creating AzSqlServer"
+
+    
     New-AzSqlServer -ResourceGroupName $resourceGroupName `
     -ServerName $sqlServerName `
     -Location $location `
@@ -122,7 +188,9 @@ Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value 'Imię, Nazwisko – nu
     $sqlDbName = "tomasiea-test"
 
     # Create a new SQL Database
-    Write-Host "Creating AzSqlDatabase"
+    # Write-Host "Creating AzSqlDatabase"
+    WriteLog "Creating AzSqlDatabase"
+
     New-AzSqlDatabase -ResourceGroupName $resourceGroupName `
     -ServerName $sqlServerName `
     -DatabaseName $sqlDbName `
@@ -134,10 +202,14 @@ function Option2
     # Connect to your Azure account
     Connect-AzAccount
 
-    Write-Host "Infrastructure deprovisioning"
+    # Write-Host "Infrastructure deprovisioning"
+    WriteLog "Infrastructure deprovisioning"
+
     $resourceGroupName = "tomasiea-test"
     # Remove the resource group as a background job
-    Write-Host "Removing AzResourceGroup"
+    # Write-Host "Removing AzResourceGroup"
+    WriteLog "Removing AzResourceGroup"
+
     $job = Remove-AzResourceGroup -Name $resourceGroupName -Force -AsJob
 
     # Wait for the job to complete
@@ -147,10 +219,13 @@ function Option2
     if ($finishedJob.State -eq 'Completed')
     {
         Write-Host "Resource group '$resourceGroupName' has been successfully removed."
+        WriteLog "Resource group '$resourceGroupName' has been successfully removed."
+
     }
     else
     {
         Write-Host "Failed to remove resource group '$resourceGroupName'."
+        WriteLog "Failed to remove resource group '$resourceGroupName'."
         # Optionally, add more error handling here
     }
 }
@@ -183,3 +258,5 @@ do
 } while ($input -ne 'Q')
 
 Write-Host "Script execution completed."
+WriteLog "Script execution completed."
+
